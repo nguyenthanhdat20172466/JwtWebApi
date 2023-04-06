@@ -1,5 +1,7 @@
 ﻿using JwtWebApi.Dtos;
 using JwtWebApi.Models;
+using JwtWebApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -16,9 +18,21 @@ namespace JwtWebApi.Controllers
     {
         public static User user = new User();
         private readonly IConfiguration _configuration;
-        public AuthController(IConfiguration configuration)
+        private readonly IUserService _userService;
+        public AuthController(IConfiguration configuration, IUserService userService)
         {
             _configuration = configuration; 
+            _userService = userService;
+        }
+        [HttpGet, Authorize]
+        public ActionResult<string> GetMyName()
+        {
+            return Ok(_userService.GetMyName());
+            //var username = User?.Identity?.Name;
+            //var roleClaims = User.FindAll(ClaimTypes.Role);    
+            //var roles = roleClaims.Select(x => x.Value).ToList();
+            //var role2 = User?.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToList();
+            //return Ok(new { username, roles, role2 });
         }
         [HttpPost("register")]
         public ActionResult<User> Register(UserDto request)
@@ -48,9 +62,12 @@ namespace JwtWebApi.Controllers
         {
             List<Claim> claims = new List<Claim>
             {
-                new Claim(ClaimTypes.Name, user.Username)
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.Role, "Admin"),
+                new Claim(ClaimTypes.Role, "User")
+
             };
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration.GetSection("AppSettings:Token").Value!));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration.GetSection("AppSettings:Token").Value!)); //Authentication:Schemes:Bearer:SigningKeys:0:Value
 
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
             var token = new JwtSecurityToken(
