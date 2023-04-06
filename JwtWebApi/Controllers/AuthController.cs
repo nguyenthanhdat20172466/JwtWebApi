@@ -1,13 +1,14 @@
-﻿using JwtWebApi.Dtos;
+﻿using JwtWebApi.Data;
+using JwtWebApi.Dtos;
 using JwtWebApi.Models;
 using JwtWebApi.Services;
+using JwtWebApi.Services.AuthService;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
-using System.Runtime.CompilerServices;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace JwtWebApi.Controllers
@@ -19,65 +20,47 @@ namespace JwtWebApi.Controllers
         public static User user = new User();
         private readonly IConfiguration _configuration;
         private readonly IUserService _userService;
-        public AuthController(IConfiguration configuration, IUserService userService)
+        private readonly DataContext _context;
+        private readonly IAuthService _authService;
+        public AuthController(IConfiguration configuration, IUserService userService, DataContext context, IAuthService authService)
         {
-            _configuration = configuration; 
+            _configuration = configuration;
             _userService = userService;
+            _context = context;
+            _authService = authService;
         }
-        [HttpGet, Authorize]
-        public ActionResult<string> GetMyName()
-        {
-            return Ok(_userService.GetMyName());
-            //var username = User?.Identity?.Name;
-            //var roleClaims = User.FindAll(ClaimTypes.Role);    
-            //var roles = roleClaims.Select(x => x.Value).ToList();
-            //var role2 = User?.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToList();
-            //return Ok(new { username, roles, role2 });
-        }
+
+
         [HttpPost("register")]
-        public ActionResult<User> Register(UserDto request)
+        public async Task<ActionResult<User>> RegisterUser(UserDto request)
         {
-            string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
-            user.Username  = request.Username;
-            user.PasswordHash = passwordHash;
-            return Ok(user);
+            var response = await _authService.RegisterUser(request);
+            return Ok(response);
         }
+
         [HttpPost("login")]
-        public ActionResult<User> Login(UserDto request)
+        public async  Task<ActionResult<User>> Login(UserDto request)
         {
-            if (user.Username != request.Username)
-            {
-                return BadRequest("User not found");
-            }
-            if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-            {
-                return BadRequest("Password is invalid");
-            }
+            var response = await _authService.Login(request);
+            if (response.Success)
+                return Ok(response);
 
-            var token = CreateToken(user);
-            return Ok(token);
+            return BadRequest(response.Message);
+        }
+        [HttpPost("refresh-token")]
+        public async Task<ActionResult<string>> RefreshToken()
+        {
+            var response = await _authService.RefreshToken();
+            if (response.Success)
+                return Ok(response);
+
+            return BadRequest(response.Message);
         }
 
-        private string CreateToken(User user)
+        [HttpGet("Role"), Authorize(Roles = "User,Admin")]
+        public ActionResult<string> Aloha()
         {
-            List<Claim> claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Role, "Admin"),
-                new Claim(ClaimTypes.Role, "User")
-
-            };
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration.GetSection("AppSettings:Token").Value!)); //Authentication:Schemes:Bearer:SigningKeys:0:Value
-
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
-            var token = new JwtSecurityToken(
-                claims: claims,
-                expires: DateTime.Now.AddDays(1),
-                signingCredentials: creds
-                );
-            var jwt = new JwtSecurityTokenHandler().WriteToken(token);
-
-            return jwt;
+            return Ok("Aloha! You're authorized!");
         }
 
     }
