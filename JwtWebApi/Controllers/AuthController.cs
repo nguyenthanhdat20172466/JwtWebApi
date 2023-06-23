@@ -17,7 +17,7 @@ namespace JwtWebApi.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
-        public static User user = new User();
+        //public static User user = new User();
         private readonly IConfiguration _configuration;
         private readonly IUserService _userService;
         private readonly DataContext _context;
@@ -30,12 +30,22 @@ namespace JwtWebApi.Controllers
             _authService = authService;
         }
 
+        [HttpGet, Authorize]
+        public ActionResult<string> GetMe()
+        {
+            var userName = _userService.GetMyName();
+            return Ok(userName);
+        }
 
         [HttpPost("register")]
         public async Task<ActionResult<User>> RegisterUser(UserDto request)
         {
             var response = await _authService.RegisterUser(request);
-            return Ok(response);
+            if (response.Success)
+                return Ok(response);
+
+            return BadRequest(response.Message);
+
         }
 
         [HttpPost("login")]
@@ -47,20 +57,28 @@ namespace JwtWebApi.Controllers
 
             return BadRequest(response.Message);
         }
-        [HttpPost("refresh-token")]
-        public async Task<ActionResult<string>> RefreshToken()
+        [HttpPost("EditRole")]
+        [Authorize]
+        public async Task<ActionResult<User>> EditRole()
         {
-            var response = await _authService.RefreshToken();
+            var userName = _userService.GetMyName();
+            var response = await _authService.EditRole(userName);
             if (response.Success)
                 return Ok(response);
 
             return BadRequest(response.Message);
+
         }
 
-        [HttpGet("Role"), Authorize(Roles = "User,Admin")]
+        [HttpGet("Role"), Authorize(Roles = "Admin")]
         public ActionResult<string> Aloha()
         {
             return Ok("Aloha! You're authorized!");
+        }
+        [HttpGet("RoleUser"), Authorize(Roles = "Admin, User")]
+        public ActionResult<string> GetRole()
+        {
+            return Ok("Role");
         }
 
     }

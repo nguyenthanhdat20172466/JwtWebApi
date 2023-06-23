@@ -10,19 +10,26 @@ using System.Net.WebSockets;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.Http;
+using System.Net.Http;
+using JwtWebApi.Services;
+
 
 namespace JwtWebApi.Services.AuthService
 {
     public class AuthService : IAuthService
     {
         private readonly DataContext _context;
+        //private readonly DataContext _contextRefreshToken;
+        private readonly ITokenService _tokenService;
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        public AuthService(DataContext context, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+        public AuthService(DataContext context, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, ITokenService tokenService)
         {
             _context = context;
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
+            _tokenService = tokenService;
         }
         public async Task<AuthResponseDto> Login(UserDto request)
         {
@@ -36,108 +43,70 @@ namespace JwtWebApi.Services.AuthService
                 return new AuthResponseDto { Message = "Wrong Password." };
             }
 
-            var token = CreateToken(user);
-            var refreshToken = GenerateRefreshToken();
-            SetRefreshToken(refreshToken, user);
+            var token = _tokenService.CreateToken(user);
+            var refreshToken = _tokenService.GenerateRefreshToken();
+            _tokenService.SetRefreshToken(refreshToken, user);
             return new AuthResponseDto
             {
                 Success = true,
                 Token = token,
                 RefreshToken = refreshToken.Token,
-                TokenExpires = refreshToken.Expires
+                TokenExpires = refreshToken.Expires,
+                Role = user.Role
             };
         }
 
-        public async Task<AuthResponseDto> RefreshToken()
+        public async Task<AuthResponseDto> RegisterUser(UserDto request)
         {
-            ;
-            var refreshToken = _httpContextAccessor?.HttpContext ?.Request.Cookies["refreshToken"];
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
-            if (!user.RefreshToken.Equals(refreshToken))
+            var userExist = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+            if(userExist != null)
             {
-                return new AuthResponseDto { Message = "Invalid Refresh Token" };
-
+                return new AuthResponseDto { Message = "User is exist." };
             }
-            else if (user.TokenExpires < DateTime.Now)
-            {
-                return new AuthResponseDto { Message = "Token expired." };
-            }
-            string token = CreateToken(user);
-            var newRefreshToken = GenerateRefreshToken();
-            SetRefreshToken(newRefreshToken, user);
 
-            return new AuthResponseDto
-            {
-                Success = true,
-                Token = token,
-                RefreshToken = newRefreshToken.Token,
-                TokenExpires = newRefreshToken.Expires
-            };
-        }
-
-        public async Task<User> RegisterUser(UserDto request)
-        {
             string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+
             var user = new User
             {
                 Username = request.Username,
                 PasswordHash = passwordHash,
+                Role = "User"
             };
+
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            return user;
+            return new AuthResponseDto
+            {
+                Success = true,
+            }; 
 
         }
-
-        private RefreshToken GenerateRefreshToken()
+        public async Task<AuthResponseDto> EditRole(string name)
         {
-            var refreshToken = new RefreshToken
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == name);
+            if (user == null)
             {
-                Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
-                Expires = DateTime.Now.AddDays(7),
-                Created = DateTime.Now
-            };
-            return refreshToken;
-        }
+                return new AuthResponseDto { Message = "User not found." };
+            }
+            var tokenString = _httpContextAccessor?.HttpContext?.Request.Headers["Authorization"].FirstOrDefault(); 
+            var existingRoles = _tokenService.GetRoles(tokenString.Split(' ')[1]);
 
-        private async void SetRefreshToken(RefreshToken newRefreshToken, User user)
-        {
-            var cookieOptions = new CookieOptions
+            existingRoles.Add("Admin");
+            var newToken = _tokenService.CreateNewToken(existingRoles);
+            user.Role = _tokenService.GetRoles(newToken).FirstOrDefault(role => role == "Admin");
+            await _context.SaveChangesAsync();
+
+            var refreshToken = _tokenService.GenerateRefreshToken(newToken);
+            _tokenService.SetRefreshToken(refreshToken, user);
+            return new AuthResponseDto
             {
-                HttpOnly = true,
-                Expires = newRefreshToken.Expires,
+                Success = true,
+                Token = newToken,
+                RefreshToken = refreshToken.Token,
+                TokenExpires = refreshToken.Expires,
+                Role = user.Role
             };
-            _httpContextAccessor?.HttpContext ? .Response.Cookies.Append("refreshToken", newRefreshToken.Token, cookieOptions);
-            
-            user.RefreshToken = newRefreshToken.Token;
-            user.TokenCreated = newRefreshToken.Created;
-            user.TokenExpires = newRefreshToken.Expires;
-            _context.Users.Update(user);
-           await _context.SaveChangesAsync();
-        }
-
-
-        private string CreateToken(User user)
-        {
-            List<Claim> claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Role, "Admin"),
-                new Claim(ClaimTypes.Role, "User")
-
-            };
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration.GetSection("AppSettings:Token").Value!)); //Authentication:Schemes:Bearer:SigningKeys:0:Value
-
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
-            var token = new JwtSecurityToken(
-                claims: claims,
-                expires: DateTime.Now.AddHours(1),
-                signingCredentials: creds
-                );
-            var jwt = new JwtSecurityTokenHandler().WriteToken(token);
-
-            return jwt;
         }
     }
 }

@@ -38,6 +38,10 @@ namespace JwtWebApi.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("TokenCreated")
                         .HasColumnType("datetime2");
 
