@@ -1,24 +1,27 @@
 ﻿using JwtWebApi.Data;
 using JwtWebApi.Models;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace JwtWebApi.Services
+namespace JwtWebApi.Services.TokenService
 {
-    public class TokenService: ITokenService
+    public class TokenService : ITokenService
     {
         private readonly DataContext _contextRefreshToken;
-
+        private readonly DataContext _context;
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        public TokenService(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, DataContext contextRefreshToken)
+        public TokenService(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, DataContext contextRefreshToken, DataContext context)
         {
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
             _contextRefreshToken = contextRefreshToken;
+            _context = context;
+
         }
 
         public RefreshToken GenerateRefreshToken(string token = null)
@@ -32,20 +35,22 @@ namespace JwtWebApi.Services
             return refreshToken;
         }
 
-        public async void SetRefreshToken(RefreshToken newRefreshToken, User user)
+        public void SetRefreshToken(RefreshToken newRefreshToken, User user)
         {
+            //var newContext = new DataContext();
             var cookieOptions = new CookieOptions
             {
                 HttpOnly = true,
                 Expires = newRefreshToken.Expires,
             };
+            //_httpContextAccessor?.HttpContext?.Response.Cookies.Delete("refreshToken");
             _httpContextAccessor?.HttpContext?.Response.Cookies.Append("refreshToken", newRefreshToken.Token, cookieOptions);
 
             user.RefreshToken = newRefreshToken.Token;
             user.TokenCreated = newRefreshToken.Created;
             user.TokenExpires = newRefreshToken.Expires;
-            _contextRefreshToken.Users.Update(user);
-            await _contextRefreshToken.SaveChangesAsync();
+            _context.Users.Update(user);
+            _context.SaveChanges();
         }
 
 

@@ -7,7 +7,7 @@ namespace JwtWebApi.Services.AuthService
     {
         Task<AuthResponseDto> RegisterUser(UserDto request);
         Task<AuthResponseDto> Login(UserDto request);
-        Task<AuthResponseDto> EditRole(string name);
+        Task<AuthResponseDto> EditRole(string name, string newRole);
         //Task<AuthResponseDto> RefreshToken();
     }
 }

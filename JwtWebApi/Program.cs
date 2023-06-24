@@ -3,10 +3,13 @@ using Swashbuckle.AspNetCore.Filters;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Configuration;
 using System.Text;
-using JwtWebApi.Services;
 using Microsoft.EntityFrameworkCore;
 using JwtWebApi.Data;
 using JwtWebApi.Services.AuthService;
+using JwtWebApi.Services.TokenService;
+using JwtWebApi.Services.UserService;
+using JwtWebApi.Services.PhotoService;
+using JwtWebApi.Helpers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +22,9 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IPhotoService, PhotoService>();
+
+builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("CloudinarySettings"));
 
 
 builder.Services.AddDbContext<DataContext>(options =>

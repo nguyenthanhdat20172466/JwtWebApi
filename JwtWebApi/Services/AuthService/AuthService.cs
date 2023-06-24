@@ -12,8 +12,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Http;
 using System.Net.Http;
-using JwtWebApi.Services;
-
+using JwtWebApi.Services.TokenService;
 
 namespace JwtWebApi.Services.AuthService
 {
@@ -52,7 +51,7 @@ namespace JwtWebApi.Services.AuthService
                 Token = token,
                 RefreshToken = refreshToken.Token,
                 TokenExpires = refreshToken.Expires,
-                Role = user.Role
+                User = user,
             };
         }
 
@@ -79,22 +78,30 @@ namespace JwtWebApi.Services.AuthService
             return new AuthResponseDto
             {
                 Success = true,
+                User = user,
+
             }; 
 
         }
-        public async Task<AuthResponseDto> EditRole(string name)
+        public async Task<AuthResponseDto> EditRole(string name, string newRole)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == name);
             if (user == null)
             {
                 return new AuthResponseDto { Message = "User not found." };
             }
+            var role = await _context.Roles.FirstOrDefaultAsync(u => u.Role == newRole);
+            if (role == null || user.Role == newRole)
+            {
+                return new AuthResponseDto { Message = "User đang có role này hoặc Role chưa tồn tại." };
+
+            }
             var tokenString = _httpContextAccessor?.HttpContext?.Request.Headers["Authorization"].FirstOrDefault(); 
             var existingRoles = _tokenService.GetRoles(tokenString.Split(' ')[1]);
 
-            existingRoles.Add("Admin");
+            existingRoles.Add(newRole);
             var newToken = _tokenService.CreateNewToken(existingRoles);
-            user.Role = _tokenService.GetRoles(newToken).FirstOrDefault(role => role == "Admin");
+            user.Role = _tokenService.GetRoles(newToken).FirstOrDefault(role => role == newRole);
             await _context.SaveChangesAsync();
 
             var refreshToken = _tokenService.GenerateRefreshToken(newToken);
@@ -105,7 +112,7 @@ namespace JwtWebApi.Services.AuthService
                 Token = newToken,
                 RefreshToken = refreshToken.Token,
                 TokenExpires = refreshToken.Expires,
-                Role = user.Role
+                User = user,
             };
         }
     }

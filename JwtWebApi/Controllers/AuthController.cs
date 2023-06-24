@@ -1,10 +1,11 @@
 ﻿using JwtWebApi.Data;
 using JwtWebApi.Dtos;
 using JwtWebApi.Models;
-using JwtWebApi.Services;
 using JwtWebApi.Services.AuthService;
+using JwtWebApi.Services.UserService;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -17,7 +18,6 @@ namespace JwtWebApi.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
-        //public static User user = new User();
         private readonly IConfiguration _configuration;
         private readonly IUserService _userService;
         private readonly DataContext _context;
@@ -58,11 +58,11 @@ namespace JwtWebApi.Controllers
             return BadRequest(response.Message);
         }
         [HttpPost("EditRole")]
-        [Authorize]
-        public async Task<ActionResult<User>> EditRole()
+        [Authorize(Roles ="Admin")]
+        public async Task<ActionResult<User>> EditRole(string userName, string role)
         {
-            var userName = _userService.GetMyName();
-            var response = await _authService.EditRole(userName);
+            //var userName = _userService.GetMyName();
+            var response = await _authService.EditRole(userName, role);
             if (response.Success)
                 return Ok(response);
 
@@ -70,16 +70,11 @@ namespace JwtWebApi.Controllers
 
         }
 
-        [HttpGet("Role"), Authorize(Roles = "Admin")]
-        public ActionResult<string> Aloha()
+        [HttpGet("GetAllUser")]
+        public async  Task<IActionResult> GetAll()
         {
-            return Ok("Aloha! You're authorized!");
+            var users = await _context.Users.ToListAsync();
+            return Ok(users);
         }
-        [HttpGet("RoleUser"), Authorize(Roles = "Admin, User")]
-        public ActionResult<string> GetRole()
-        {
-            return Ok("Role");
-        }
-
     }
 }

@@ -14,5 +14,7 @@ namespace JwtWebApi.Models
         public DateTime TokenCreated { get; set; }
         public DateTime TokenExpires { get; set; }
         public string Role { get; set; } = string.Empty;
+
+
     }
 }

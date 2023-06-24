@@ -1,6 +1,6 @@
 ﻿using System.Security.Claims;
 
-namespace JwtWebApi.Services
+namespace JwtWebApi.Services.UserService
 {
     public class UserService : IUserService
     {
