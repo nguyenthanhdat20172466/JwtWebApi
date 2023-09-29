@@ -31,6 +31,9 @@ builder.Services.AddDbContext<DataContext>(options =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
+
+builder.Services.AddDbContext<DataContext>(options =>
+   options.UseNpgsql(builder.Configuration.GetConnectionString("SchoolContext")));
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
@@ -61,6 +64,26 @@ builder.Services.AddCors(options => options.AddPolicy(name: "NgOrigins",
     }));
 
 var app = builder.Build();
+
+//using (var scope = app.Services.CreateScope())
+//{
+//    var services = scope.ServiceProvider;
+//    try
+//    {
+//        // add 10 seconds delay to ensure the db server is up to accept connections
+//        // this won't be needed in real world application
+//        System.Threading.Thread.Sleep(10000);
+//        var context = services.GetRequiredService<DataContext>();
+//        var created = context.Database.EnsureCreated();
+
+//    }
+//    catch (Exception ex)
+//    {
+//        var logger = services.GetRequiredService<ILogger<Program>>();
+//        logger.LogError(ex, "An error occurred creating the DB.");
+//    }
+//}
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

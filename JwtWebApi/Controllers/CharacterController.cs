@@ -29,16 +29,17 @@ namespace JwtWebApi.Controllers
 
 
         [HttpPost("character")]
-        public async Task<ActionResult<Character>> AddCharacter(CharacterDto character)
+        public async Task<Character> AddCharacter(CharacterDto character)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+            //if (!ModelState.IsValid)
+            //{
+            //    return BadRequest(ModelState);
+            //}
             var name = _context.Characters.FirstOrDefault(x => x.Name.ToLower() == character.Name.ToLower());
             if(name != null)
             {
-                return BadRequest($"character is exist");
+                throw new Exception("character is exist");
+                //return BadRequest($"character is exist");
             }
             var newCharacter = new Character
             {
@@ -50,39 +51,42 @@ namespace JwtWebApi.Controllers
             _context.Characters.Add(newCharacter);
             _context.SaveChangesAsync();
 
-            return Ok(newCharacter);
+            return newCharacter;
         }
 
         [HttpGet("character")]
-        public async Task<ActionResult<IEnumerable<Character>>> GetAllCharacter()
+        public async Task<List<Character>> GetAllCharacter()
         {
             var character = await _context.Characters.Include(c => c.Counters).ToListAsync();
-            if(!character.Any())
-            {
-                return BadRequest(ModelState);
-            }
+            //if(!character.Any())
+            //{
+            //    return BadRequest(ModelState);
+            //}
             var json = JsonConvert.SerializeObject(character, _options);
             var deserializedcharacters = JsonConvert.DeserializeObject<List<Character>>(json);
 
-            return Ok(deserializedcharacters);
+            return deserializedcharacters;
         }
 
         [HttpPost("characterCounter")]
-        public async Task<ActionResult<Counter>> AddCharacterCounter(string characterCounter, string characterName)
+        public async Task<Counter> AddCharacterCounter(string characterCounter, string characterName)
         {
             var name = _context.Characters.Include(c => c.Counters).FirstOrDefault(x => x.Name.ToLower() == characterName.ToLower());
             if(name == null)
             {
-                return BadRequest("tướng này chưa có");
+                throw new Exception("tướng này chưa có");
+                //return BadRequest("tướng này chưa có");
             }
            // var nameCounter = _context.Counters.FirstOrDefault(x => x.Name.ToLower() == characterCounter.ToLower());
             if (name.Counters.Any(c => c.Name.ToLower() == characterCounter.ToLower()))
             {
-                return BadRequest("Tướng Counter đã có trong danh sách của Character");
+                throw new Exception("Tướng Counter đã có trong danh sách của Character");
+                //return BadRequest("Tướng Counter đã có trong danh sách của Character");
             }
             if (characterCounter.ToLower() == characterName.ToLower())
             {
-                return BadRequest("Tướng này không thể khắc chế chính nó");
+                throw new Exception("Tướng này không thể khắc chế chính nó");
+                //return BadRequest("Tướng này không thể khắc chế chính nó");
 
             }
             //name.Counters = _context.Counters.Where(x => x.CharacterId == name.Id).ToList();
@@ -101,7 +105,7 @@ namespace JwtWebApi.Controllers
             var json = JsonConvert.SerializeObject(newCharacterCouter, _options);
             var deserializedCharacterCounter = JsonConvert.DeserializeObject<Counter>(json);
 
-            return Ok(deserializedCharacterCounter);
+            return deserializedCharacterCounter;
         }
 
 
