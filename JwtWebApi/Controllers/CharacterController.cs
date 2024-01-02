@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using System.Numerics;
 using Newtonsoft.Json;
 using System.Diagnostics.Metrics;
+using AutoMapper;
 
 namespace JwtWebApi.Controllers
 {
@@ -18,9 +19,11 @@ namespace JwtWebApi.Controllers
     {
         private readonly DataContext _context;
         private readonly JsonSerializerSettings _options;
-        public CharacterController(DataContext dataContext )
+        private readonly IMapper _mapper;
+        public CharacterController(DataContext dataContext, IMapper mapper )
         {
             _context = dataContext;
+            _mapper = mapper;
             _options = new JsonSerializerSettings
             {
                 ReferenceLoopHandling = ReferenceLoopHandling.Ignore
@@ -106,6 +109,42 @@ namespace JwtWebApi.Controllers
             var deserializedCharacterCounter = JsonConvert.DeserializeObject<Counter>(json);
 
             return deserializedCharacterCounter;
+        }
+        [HttpPost("update")]
+        public async Task<ActionResult<Character>> Update(CharacterUpdateDto model)
+        {
+            var entity = _mapper.Map<CharacterUpdateDto,Character>(model);
+            var character = _context.Characters.FirstOrDefault(x => x.Id == model.Id);
+
+            List<string> modifyParams = new List<string>() { "Name", "Description"};
+            if (entity.ModifyParams is null) entity.ModifyParams = modifyParams;
+            else entity.ModifyParams.AddRange(modifyParams);
+            PartialConvert(character, entity);
+
+            _context.Characters.Update(character);
+            _context.SaveChangesAsync();
+
+            return Ok(character);
+
+        }
+
+        public static  void PartialConvert(Character source, Character update)
+        {
+            if (source == null || update == null)
+            {
+                return;
+            }
+            var properties = source.GetType().GetProperties();
+            var modifyFields = update.ModifyParams;
+
+            foreach (var item in properties)
+            {
+                if (modifyFields != null && modifyFields.Contains(item.Name, StringComparer.CurrentCultureIgnoreCase))
+                {
+                    var value = item.GetValue(update);
+                    item.SetValue(source, value);
+                }
+            }
         }
 
 
